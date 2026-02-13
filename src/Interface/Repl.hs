@@ -58,10 +58,10 @@ handleQuery input ctx =
           case runStateErrorTrace pipeline (ctx, 0) of
             Left evalErr -> putStrLn ("Error: " ++ show evalErr) >> return ctx
             Right ((astOpt, rel), _, trace) -> do
-              putStrLn trace
+              putStrLn $ "\n" ++ trace
               putStrLn $ "\nConsulta parseada: " ++ renderRA ast
               putStrLn $ "\nConsulta optimizada: " ++ renderRA astOpt
-              putStrLn $ renderTable rel
+              putStrLn $ "\n" ++ renderTable rel
               return ctx
 
 showTables :: Context -> IO ()

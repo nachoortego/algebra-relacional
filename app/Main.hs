@@ -9,8 +9,6 @@ import Types.RelContext (Context, Resource(..))
 import Interface.Repl (repl)
 import Utils.LoadCSV (loadCSVsFromDir)
 
--- | Carga el contexto inicial desde data/ si existe.
--- Si data/ no existe o está vacía, arranca con contexto vacío.
 contextoInicial :: IO Context
 contextoInicial = do
   exists <- doesDirectoryExist "data"

@@ -12,7 +12,6 @@ import qualified Data.Map as M
 
 type Trace = String
 
--- | Estado del runner: contexto (tablas y vistas) + profundidad actual de vistas (evitar ciclos)
 type RunnerState = (Context, Int)
 
 newtype StateErrorTrace a = StateErrorTrace {
@@ -33,15 +32,12 @@ class Monad m => MonadError m where
 class Monad m => MonadTrace m where
   addTrace :: String -> m ()
 
--- | Obtener el contexto actual
 getContext :: StateErrorTrace Context
 getContext = StateErrorTrace (\(ctx, d) -> Right (ctx, (ctx, d), ""))
 
--- | Obtener la profundidad actual de vistas
 getDepth :: StateErrorTrace Int
 getDepth = StateErrorTrace (\(ctx, d) -> Right (d, (ctx, d), ""))
 
--- | Fijar la profundidad (p. ej. al entrar/salir de una vista)
 putDepth :: Int -> StateErrorTrace ()
 putDepth d' = StateErrorTrace (\(ctx, _) -> Right ((), (ctx, d'), ""))
 

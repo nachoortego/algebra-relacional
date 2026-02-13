@@ -14,15 +14,11 @@ import System.FilePath (takeBaseName, (</>))
 import Types.Common (Relation(..), Value(..))
 import Core.Schema (mkSchema)
 
--- | Intenta parsear un String a VInt, si no, lo deja como VStr
 toValue :: String -> Value
 toValue s = case readMaybe s of
               Just n  -> VInt n
               Nothing -> VStr s
 
--- | Carga un archivo CSV y retorna una Relation.
--- La primera fila se interpreta como encabezado (nombres de columnas).
--- Valores numéricos se parsean como VInt, el resto como VStr.
 loadCSV :: FilePath -> IO (Either String Relation)
 loadCSV path = do
   csvData <- BL.readFile path
@@ -37,10 +33,6 @@ loadCSV path = do
         let tuplas = S.fromList $ map mkTup rows
         return $ Right (Rel esquema tuplas)
 
--- | Carga todos los .csv de un directorio.
--- Retorna una lista de (nombreTabla, Relation) para los exitosos
--- y una lista de mensajes de error.
--- El nombre de la tabla es el nombre del archivo sin extensión.
 loadCSVsFromDir :: FilePath -> IO ([(String, Relation)], [String])
 loadCSVsFromDir dir = do
   contents <- listDirectory dir

@@ -11,12 +11,10 @@ import Types.Common
 import Types.Monads (StateErrorTrace, lookfor, throw, addTrace, getDepth, putDepth, maxViewDepth)
 import Types.RelContext (Resource(..))
 
--- | El evaluador principal
--- Retorna la Relación resultante o un error (por ahora usaremos error de Haskell simple).
 eval :: RAExp -> StateErrorTrace Relation
 
 -- 1. Caso Base: Una variable (nombre de tabla o vista)
--- Si es Table: devolvemos la relación. Si es View: evaluamos la expresión con límite de profundidad.
+-- Si es Table: devuelve la relación. Si es View: evalua la expresión con límite de profundidad.
 eval (Tabla nombre) = do
   res <- lookfor nombre
   case res of
@@ -32,7 +30,7 @@ eval (Tabla nombre) = do
           return result
 
 -- 2. Unión (R U S)
--- Requiere que ambas tablas tengan el mismo esquema (mismas columnas).
+-- Requiere mismo esquema.
 eval (Union r1 r2) = do rel1 <- eval r1
                         rel2 <- eval r2
                         addTrace "Calculando unión..."
@@ -41,7 +39,7 @@ eval (Union r1 r2) = do rel1 <- eval r1
                         else throw IncompatibleSchemes
 
 -- 3. Diferencia (R - S)
--- También requiere mismo esquema.
+-- Requiere mismo esquema.
 eval (Diferencia r1 r2) = do rel1 <- eval r1 
                              rel2 <- eval r2 
                              addTrace "Calculando diferencia..."
@@ -51,15 +49,15 @@ eval (Diferencia r1 r2) = do rel1 <- eval r1
 
 -- 4. Producto Cartesiano (R x S)
 -- Combina todas las filas de R con todas las de S.
--- El esquema resultante es la concatenación de atributos (ej: [nom, edad] + [pais] = [nom, edad, pais])
+-- El esquema resultante es la concatenación de atributos.
 eval (Producto r1 r2) = do
   rel1 <- eval r1
   rel2 <- eval r2
   addTrace "Calculando producto cartesiano..."
   let sch1 = attributes rel1
       sch2 = attributes rel2
-      fixKey = avoidClash (attrSet sch1)
-      sch2Fixed = mapSchema fixKey sch2
+      fixKey = avoidClash (S.union (attrSet sch1) (attrSet sch2))
+      sch2Fixed = mapSchema fixKey sch2 -- Aplica avoidClash parcialmente si hay atributos repetidos
       tups2Fixed = S.map (M.mapKeys fixKey) (tuples rel2)
       newSchema = combineSchemas sch1 sch2Fixed
       newTups = S.fromList [ M.union t1 t2 | t1 <- S.toList (tuples rel1), t2 <- S.toList tups2Fixed ]
@@ -67,14 +65,14 @@ eval (Producto r1 r2) = do
 
 
 -- 5. Selección (σ[cond] (R))
--- Filtra las tuplas que cumplen el predicado. El esquema se mantiene intacto.
+-- Filtra las tuplas que cumplen el predicado. Mismo esquema.
 eval (Seleccion cond r) = do rel <- eval r 
                              addTrace "Filtrando filas (Selección)..."
                              newTupsList <- filterM (evalCond cond) (S.toList (tuples rel))
                              return (Rel (attributes rel) (S.fromList newTupsList))
 
 -- 6. Proyección (π[attrs] (R))
--- Selecciona un subconjunto de columnas. Puede reducir la cardinalidad si surgen duplicados (comportamiento de conjunto).
+-- Selecciona un subconjunto de columnas.
 eval (Proyeccion attrs r) = do rel <- eval r 
                                addTrace $ "Aplicando proyección sobre " ++ show attrs
                                let faltantes = filter (\a -> not (hasAttr a (attributes rel))) attrs
@@ -100,7 +98,7 @@ eval (Renombre nOld nNew r) = do rel <- eval r
                                               return (Rel newAttrs newTups) 
 
 -- 8. Intersección (R ∩ S)
--- Retorna las tuplas que están en ambas relaciones.
+-- Retorna las tuplas que están en ambas relaciones. Mismo esquema.
 eval (Interseccion r1 r2) = do rel1 <- eval r1
                                rel2 <- eval r2
                                addTrace "Calculando interseccion..."
@@ -110,7 +108,7 @@ eval (Interseccion r1 r2) = do rel1 <- eval r1
 
 -- 9. Join Natural (R ⋈ S)
 -- Une filas donde los valores de los atributos con el mismo nombre coinciden.
--- El esquema resultante es la unión de atributos (los comunes aparecen una sola vez).
+-- El esquema resultante es la unión de atributos sin repetidos.
 eval (Join r1 r2) = do rel1 <- eval r1
                        rel2 <- eval r2
                        addTrace "Calculando producto natural..."
@@ -127,7 +125,7 @@ eval (Join r1 r2) = do rel1 <- eval r1
                        return (Rel newSchema joinedTuples)
 
 -- 10. División (R ÷ S)
--- Identifica los valores de R que están combinados con *todas* las tuplas de S.
+-- Identifica los valores de R que están combinados con todas las tuplas de S.
 eval (Division r1 r2) = do rel1 <- eval r1
                            rel2 <- eval r2 
                            addTrace "Calculando división..."
@@ -164,6 +162,7 @@ evalOp (VInt v1) Ge (VInt v2)  = return (v1 >= v2)
 evalOp (VInt v1) Le (VInt v2)  = return (v1 <= v2)
 evalOp v1 _ v2                 = throw (CustomError $ "Tipos incompatibles: " ++ show v1 ++ " y " ++ show v2)
 
+-- Si k está en avoid, devuelve k_i, donde i es el menor entero tal que k_i no está en avoid.
 avoidClash :: S.Set String -> String -> String
 avoidClash avoid k
   | S.member k avoid = ac (2 :: Int)

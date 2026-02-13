@@ -10,10 +10,6 @@ import Data.Functor.Identity (Identity)
 import Core.AST
 import Types.Common
 
--------------------------------------------------------------------------------
--- 1. Definición del Lexer (Tokens)
--------------------------------------------------------------------------------
--- Configuramos el estilo del lenguaje (palabras reservadas, operadores, etc.)
 raDef :: T.LanguageDef st
 raDef = emptyDef
     { T.commentStart    = "/*"
@@ -34,7 +30,7 @@ raDef = emptyDef
 lexer :: T.TokenParser st
 lexer = T.makeTokenParser raDef
 
--- Helpers para consumir tokens
+-- Helpers
 identifier :: Parser String
 identifier = T.identifier lexer
 
@@ -62,16 +58,13 @@ stringLit  = T.stringLiteral lexer
 whiteSpace :: Parser ()
 whiteSpace = T.whiteSpace lexer
 
--------------------------------------------------------------------------------
--- 2. Parsers de Valores y Condiciones
--------------------------------------------------------------------------------
 
--- Parsea un valor (entero o string)
+-- Valores y Condiciones
+
 valueP :: Parser Value
 valueP = (VInt . fromIntegral <$> integer)
   <|> (VStr <$> stringLit)
 
--- Tabla de operadores para Condiciones (AND, OR tienen precedencia)
 condExpr :: Parser Condition
 condExpr = E.buildExpressionParser condTable condTerm
 
@@ -82,12 +75,10 @@ condTable =
   , [ E.Infix  (reservedOp "||" >> return Or)  E.AssocLeft ]
   ]
 
--- Términos básicos de una condición: (cond) o comparaciones simples
 condTerm :: Parser Condition
 condTerm = parens condExpr
        <|> try comparisonP
 
--- Comparación: columna op valor (ej: id == 1)
 comparisonP :: Parser Condition
 comparisonP = do
   col <- identifier
@@ -103,17 +94,12 @@ opP =  (reservedOp "==" >> return Eq)
   <|> (reservedOp ">"  >> return Gt)
   <|> (reservedOp "<"  >> return Lt)
 
--------------------------------------------------------------------------------
--- 3. Parsers de Álgebra Relacional (Expresiones)
--------------------------------------------------------------------------------
 
--- Entrada principal
+-- Expresiones 
+
 raExpr :: Parser RAExp
 raExpr = E.buildExpressionParser table term
 
--- Tabla de precedencia de operadores relacionales
--- 1. Alta prioridad: Producto, Join, División
--- 2. Baja prioridad: Unión, Intersección, Diferencia
 table :: [[E.Operator String () Identity RAExp]]
 table = 
   [ [ E.Infix (reserved "PROD"  >> return Producto)     E.AssocLeft
@@ -126,7 +112,6 @@ table =
     ]
   ]
 
--- Términos: Tablas, Paréntesis u Operaciones Unarias (PROY, SEL, REN)
 term :: Parser RAExp
 term = parens raExpr
   <|> proyeccionP
@@ -134,7 +119,6 @@ term = parens raExpr
   <|> renombreP
   <|> tablaP
 
--- Parsear nombre de tabla: "Alumnos"
 tablaP :: Parser RAExp
 tablaP = Tabla <$> identifier
 
@@ -166,11 +150,10 @@ renombreP = do
   sub <- parens raExpr
   return (Renombre old new sub)
 
--------------------------------------------------------------------------------
--- 4. Parser de definición de vista
--------------------------------------------------------------------------------
 
--- | Parsea "VIEW nombre AS (expresión)"
+-- Vistas 
+
+-- VIEW nombre AS (Exp)
 viewDefP :: Parser (String, RAExp)
 viewDefP = do
   reserved "VIEW"
@@ -182,9 +165,7 @@ viewDefP = do
 parseViewDef :: String -> Either ParseError (String, RAExp)
 parseViewDef input = parse (whiteSpace >> viewDefP <* eof) "" input
 
--------------------------------------------------------------------------------
--- 5. Exportar función principal
--------------------------------------------------------------------------------
 
+-- Funcion principal
 parseRA :: String -> Either ParseError RAExp
 parseRA input = parse (whiteSpace >> raExpr <* eof) "" input

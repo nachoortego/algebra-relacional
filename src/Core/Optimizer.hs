@@ -36,7 +36,6 @@ simplifyCascades x = x
 
 
 pushSelections :: RAExp -> StateErrorTrace RAExp
--- Caso Clave: Selección sobre Producto
 pushSelections (Seleccion c (Producto r1 r2)) = do
   s1 <- getSchema r1
   s2 <- getSchema r2
@@ -65,13 +64,11 @@ pushSelections (Seleccion c (Producto r1 r2)) = do
       r2Opt <- pushSelections r2
       return (Seleccion c (Producto r1Opt r2Opt))
 
--- Caso: Selección sobre Unión (Se distribuye siempre)
 pushSelections (Seleccion c (Union r1 r2)) = do
   r1Opt <- pushSelections (Seleccion c r1)
   r2Opt <- pushSelections (Seleccion c r2)
   return (Union r1Opt r2Opt)
 
--- Resto de casos: Recursión monádica estándar (boilerplate)
 pushSelections (Proyeccion l r) = Proyeccion l <$> pushSelections r
 pushSelections (Seleccion c r)  = Seleccion c <$> pushSelections r
 pushSelections (Renombre o n r) = Renombre o n <$> pushSelections r
@@ -117,7 +114,6 @@ getSchema (Division r1 r2) = do
   s2 <- getSchema r2
   return (mkSchema [ a | a <- schemaAttrs s1, not (hasAttr a s2) ])
 
--- | Extrae lista de atributos usados en una condición
 getAttrsCond :: Condition -> [String]
 getAttrsCond (Comp a _ (VStr _)) = [a]
 getAttrsCond (Comp a _ (VInt _)) = [a]
