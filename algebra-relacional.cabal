@@ -4,7 +4,7 @@ name:                algebra-relacional
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            https://github.com/githubuser/algebra-relacional#readme
+homepage:            https://github.com/nachoortego/algebra-relacional#readme
 license:             BSD-3-Clause
 license-file:        LICENSE
 author:              Ignacio Ortego
