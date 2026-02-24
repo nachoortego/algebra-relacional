@@ -5,18 +5,21 @@ module Core.Schema (
   schemaAttrs,
   combineSchemas,
   mapSchema,
-  intersectSchemas
+  intersectSchemas,
+  avoidClash
 ) where
 
 import qualified Data.Sequence as Seq
 import qualified Data.Set as S
 import Data.Foldable (toList)
 
+-- Se guarda el orden para mejor representación hacia el usuario
 data Schema = Schema {
   attrSeq  :: Seq.Seq String,
   attrSet  :: S.Set String
 } deriving Show
 
+-- En la igualdad de esquemas no importa el orden
 instance Eq Schema where
   s1 == s2 = attrSet s1 == attrSet s2
 
@@ -37,3 +40,11 @@ hasAttr a s = S.member a (attrSet s)
 
 schemaAttrs :: Schema -> [String]
 schemaAttrs = toList . attrSeq
+
+-- Si k está en avoid, devuelve k_i, donde i es el menor entero tal que k_i no está en avoid.
+avoidClash :: S.Set String -> String -> String
+avoidClash avoid k
+  | S.member k avoid = ac (2 :: Int)
+  | otherwise        = k
+  where ac i = let candidate = k ++ "_" ++ show i
+               in if S.member candidate avoid then ac (i + 1) else candidate

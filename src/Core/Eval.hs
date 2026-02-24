@@ -15,19 +15,18 @@ eval :: RAExp -> StateErrorTrace Relation
 
 -- 1. Caso Base: Una variable (nombre de tabla o vista)
 -- Si es Table: devuelve la relación. Si es View: evalua la expresión con límite de profundidad.
-eval (Tabla nombre) = do
-  res <- lookfor nombre
-  case res of
-    Table rel -> return rel
-    View viewExpr -> do
-      d <- getDepth
-      if d >= maxViewDepth
-        then throw (CustomError "Profundidad de vistas excedida (posible referencia circular)")
-        else do
-          putDepth (d + 1)
-          result <- eval viewExpr
-          putDepth d
-          return result
+eval (Tabla nombre) = do res <- lookfor nombre
+                         case res of
+                           Table rel -> return rel
+                           View viewExpr -> do
+                             d <- getDepth
+                             if d >= maxViewDepth
+                               then throw (CustomError "Profundidad de vistas excedida (posible referencia circular)")
+                               else do
+                                 putDepth (d + 1)
+                                 result <- eval viewExpr
+                                 putDepth d
+                                 return result
 
 -- 2. Unión (R U S)
 -- Requiere mismo esquema.
@@ -50,18 +49,17 @@ eval (Diferencia r1 r2) = do rel1 <- eval r1
 -- 4. Producto Cartesiano (R x S)
 -- Combina todas las filas de R con todas las de S.
 -- El esquema resultante es la concatenación de atributos.
-eval (Producto r1 r2) = do
-  rel1 <- eval r1
-  rel2 <- eval r2
-  addTrace "Calculando producto cartesiano..."
-  let sch1 = attributes rel1
-      sch2 = attributes rel2
-      fixKey = avoidClash (S.union (attrSet sch1) (attrSet sch2))
-      sch2Fixed = mapSchema fixKey sch2 -- Aplica avoidClash parcialmente si hay atributos repetidos
-      tups2Fixed = S.map (M.mapKeys fixKey) (tuples rel2)
-      newSchema = combineSchemas sch1 sch2Fixed
-      newTups = S.fromList [ M.union t1 t2 | t1 <- S.toList (tuples rel1), t2 <- S.toList tups2Fixed ]
-  return (Rel newSchema newTups)
+eval (Producto r1 r2) = do rel1 <- eval r1
+                           rel2 <- eval r2
+                           addTrace "Calculando producto cartesiano..."
+                           let s1 = attributes rel1
+                               s2 = attributes rel2
+                               fixKey = avoidClash (S.union (attrSet s1) (attrSet s2))
+                               s2Fixed = mapSchema fixKey s2 -- Aplica avoidClash parcialmente si hay atributos repetidos
+                               tups2Fixed = S.map (M.mapKeys fixKey) (tuples rel2)
+                               newSchema = combineSchemas s1 s2Fixed
+                               newTups = S.fromList [ M.union t1 t2 | t1 <- S.toList (tuples rel1), t2 <- S.toList tups2Fixed ]
+                           return (Rel newSchema newTups)
 
 
 -- 5. Selección (σ[cond] (R))
@@ -78,22 +76,22 @@ eval (Proyeccion attrs r) = do rel <- eval r
                                let faltantes = filter (\a -> not (hasAttr a (attributes rel))) attrs
                                case faltantes of
                                  (f : _) -> throw (UndefColumn f)
-                                 []      -> do let sch = mkSchema attrs
-                                                   newTups = S.map (\t -> M.restrictKeys t (attrSet sch)) (tuples rel)
-                                               return (Rel sch newTups)
+                                 []      -> do let s = mkSchema attrs
+                                                   newTups = S.map (\t -> M.restrictKeys t (attrSet s)) (tuples rel)
+                                               return (Rel s newTups)
                                  
 -- 7. Renombre (ρ[old → new] (R))
 -- Cambia el nombre de un atributo en el esquema y actualiza las claves en todas las tuplas.
 eval (Renombre nOld nNew r) = do rel <- eval r
                                  addTrace $ "Aplicando renombre de " ++ nOld ++ " a " ++ nNew
-                                 let sch = attributes rel
-                                 if not (hasAttr nOld sch)
+                                 let s = attributes rel
+                                 if not (hasAttr nOld s)
                                  then throw (UndefColumn nOld)
-                                 else if hasAttr nNew sch
+                                 else if hasAttr nNew s
                                       then throw (CustomError $ "La columna " ++ nNew ++ " ya existe en la relación")
                                       else do 
                                               let replace x = if x == nOld then nNew else x
-                                                  newAttrs = mapSchema replace sch
+                                                  newAttrs = mapSchema replace s
                                                   newTups = S.map (M.mapKeys replace) (tuples rel)
                                               return (Rel newAttrs newTups) 
 
@@ -101,7 +99,7 @@ eval (Renombre nOld nNew r) = do rel <- eval r
 -- Retorna las tuplas que están en ambas relaciones. Mismo esquema.
 eval (Interseccion r1 r2) = do rel1 <- eval r1
                                rel2 <- eval r2
-                               addTrace "Calculando interseccion..."
+                               addTrace "Calculando intersección..."
                                if attributes rel1 == attributes rel2 
                                then return (Rel (attributes rel1) (S.intersection (tuples rel1) (tuples rel2)))
                                else throw IncompatibleSchemes
@@ -142,8 +140,10 @@ eval (Division r1 r2) = do rel1 <- eval r1
 
 evalCond :: Condition -> Tuple -> StateErrorTrace Bool
 evalCond (Comp attr op v) tup = case M.lookup attr tup of
-                                  Just v' -> evalOp v' op v 
-                                  Nothing -> throw (UndefColumn attr)
+                                  Just v' ->
+                                      evalOp v' op v
+                                  Nothing ->
+                                      throw (UndefColumn attr)
 evalCond (And c1 c2) tup = do b1 <- evalCond c1 tup
                               b2 <- evalCond c2 tup
                               return (b1 && b2)
@@ -161,11 +161,3 @@ evalOp (VInt v1) Lt (VInt v2)  = return (v1 < v2)
 evalOp (VInt v1) Ge (VInt v2)  = return (v1 >= v2)
 evalOp (VInt v1) Le (VInt v2)  = return (v1 <= v2)
 evalOp v1 _ v2                 = throw (CustomError $ "Tipos incompatibles: " ++ show v1 ++ " y " ++ show v2)
-
--- Si k está en avoid, devuelve k_i, donde i es el menor entero tal que k_i no está en avoid.
-avoidClash :: S.Set String -> String -> String
-avoidClash avoid k
-  | S.member k avoid = ac (2 :: Int)
-  | otherwise        = k
-  where ac i = let candidate = k ++ "_" ++ show i
-               in if S.member candidate avoid then ac (i + 1) else candidate

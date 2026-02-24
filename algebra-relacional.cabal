@@ -34,7 +34,6 @@ library
     , parsec
     , containers
     , pretty
-    , mtl
     , cassava
     , bytestring
     , vector

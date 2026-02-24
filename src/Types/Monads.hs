@@ -18,7 +18,7 @@ newtype StateErrorTrace a = StateErrorTrace {
   runStateErrorTrace :: RunnerState -> Either Error (a, RunnerState, Trace)
 }
 
--- | Profundidad máxima al expandir vistas (evita consultas circulares)
+-- Profundidad máxima al expandir vistas (evita consultas circulares)
 maxViewDepth :: Int
 maxViewDepth = 20
 
@@ -64,7 +64,7 @@ instance MonadState StateErrorTrace where
   lookfor v = StateErrorTrace (\(ctx, d) -> case M.lookup v ctx of
                                   Just r  -> Right (r, (ctx, d), "")
                                   Nothing -> Left UndefVar)
-  update v res = StateErrorTrace (\(ctx, d) -> Right ((), (M.insert v res ctx, d), "Vista/tabla actualizada: " ++ v ++ "\n"))
+  update v res = StateErrorTrace (\(ctx, d) -> Right ((), (M.insert v res ctx, d), "Vista " ++ v ++ " creada"))
 
 instance MonadTrace StateErrorTrace where
   addTrace msg = StateErrorTrace (\(ctx, d) -> Right ((), (ctx, d), msg ++ "\n"))

@@ -29,7 +29,7 @@ loadCSV path = do
       (header : rows) -> do
         let colNames = map B8.unpack (V.toList header)
         let esquema = mkSchema colNames
-        let mkTup row = M.fromList $ zip colNames (map toValue (map B8.unpack (V.toList row)))
+        let mkTup row = M.fromList $ zip colNames (map (toValue . B8.unpack) (V.toList row))
         let tuplas = S.fromList $ map mkTup rows
         return $ Right (Rel esquema tuplas)
 

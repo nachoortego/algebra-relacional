@@ -9,12 +9,12 @@ import           Text.PrettyPrint
 import           Data.List (transpose)
 import           Prelude                 hiding ( (<>) )
 
--- | Pretty printer para Valores
+-- Pretty printer para Valores
 pValue :: Value -> Doc
 pValue (VInt n) = int n
 pValue (VStr s) = text "\"" <> text s <> text "\""
 
--- | Pretty printer para Condiciones (usado en Seleccion)
+-- Pretty printer para Condiciones
 pCond :: Condition -> Doc
 pCond (Comp a op v) = text a <+> pOp op <+> pValue v
 pCond (And c1 c2)   = parens (pCond c1 <+> text "&&" <+> pCond c2)
@@ -29,7 +29,7 @@ pOp Lt  = text "<"
 pOp Ge  = text ">="
 pOp Le  = text "<="
 
--- | Pretty printer para la Expresión de Álgebra Relacional (RAExp)
+-- Pretty printer para RAExp
 pRA :: RAExp -> Doc
 pRA (Tabla n)       = text n
 pRA (Union r1 r2)   = parens (pRA r1 <+> text "∪" <+> pRA r2)
@@ -42,11 +42,11 @@ pRA (Seleccion c r) = text "σ" <> brackets (pCond c) <+> parens (pRA r)
 pRA (Proyeccion attrs r) = text "π" <> brackets (hsep (punctuate comma (map text attrs))) <+> parens (pRA r)
 pRA (Renombre old new r) = text "ρ" <> (brackets (text old <+> text "→" <+> text new)) <+> parens (pRA r)
 
--- | Renderizador para convertir la expresión en String
+-- Renderizador para convertir la expresión en String
 renderRA :: RAExp -> String
 renderRA = render . pRA
 
--- | Formatea la relación resultante como una tabla ASCII
+-- Formatea la relación resultante como una tabla ASCII
 renderTable :: Relation -> String
 renderTable rel | S.null (tuples rel) = "Resultado: [Tabla Vacía]\nEsquema: " ++ show (attributes rel)
                 | otherwise = render $ vcat [rowSep, headerRow, rowSep, body, rowSep]
@@ -54,7 +54,7 @@ renderTable rel | S.null (tuples rel) = "Resultado: [Tabla Vacía]\nEsquema: " +
     attrs = schemaAttrs (attributes rel)
     tups  = S.toList (tuples rel)
     
-    -- Calculamos anchos de columna
+    -- Calcula anchos de columna
     allRows = attrs : [ [ valToString (M.findWithDefault (VStr "") a t) | a <- attrs ] | t <- tups ]
     widths  = map (maximum . map length) (transpose allRows)
     

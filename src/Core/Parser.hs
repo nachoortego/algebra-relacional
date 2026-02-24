@@ -22,7 +22,6 @@ raDef = emptyDef
                           , "JOIN", "PROD", "DIV"
                           , "VIEW", "AS"
                           , "AND", "OR", "NOT"
-                          , "true", "false"
                           ]
     , T.reservedOpNames = [ "==", "!=", ">", "<", ">=", "<=", "&&", "||", "!", "->" ]
     }
@@ -163,9 +162,18 @@ viewDefP = do
   return (name, viewExpr)
 
 parseViewDef :: String -> Either ParseError (String, RAExp)
-parseViewDef input = parse (whiteSpace >> viewDefP <* eof) "" input
-
+parseViewDef input = parse parser "" input
+  where
+    parser = do whiteSpace
+                x <- viewDefP
+                eof
+                return x
 
 -- Funcion principal
 parseRA :: String -> Either ParseError RAExp
-parseRA input = parse (whiteSpace >> raExpr <* eof) "" input
+parseRA input = parse parser "" input
+  where
+    parser = do whiteSpace
+                x <- raExpr
+                eof
+                return x

@@ -6,12 +6,6 @@ type NombreRelacion = String
 type NombreAtributo = String
 type NombreOp       = String
 
-data Program = Prog [Definition] RAExp
-  deriving (Show, Eq)
-
-data Definition = Def NombreOp [NombreRelacion] RAExp
-  deriving (Show, Eq)
-
 data RAExp = Tabla NombreRelacion 
            | Seleccion Condition RAExp
            | Proyeccion [NombreAtributo] RAExp

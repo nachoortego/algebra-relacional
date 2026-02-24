@@ -16,7 +16,7 @@ contextoInicial = do
     then do
       (loaded, errs) <- loadCSVsFromDir "data"
       mapM_ putStrLn errs
-      return $ foldl (\c (name, rel) -> M.insert name (Table rel) c) M.empty loaded
+      return $ M.fromList [(name, Table rel) | (name, rel) <- loaded]
     else return M.empty
 
 main :: IO ()

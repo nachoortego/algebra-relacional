@@ -37,8 +37,11 @@ handleRefresh _ = do
     else do
       (loaded, errs) <- loadCSVsFromDir dataDir
       mapM_ putStrLn errs
-      let ctx = foldl (\c (name, rel) -> M.insert name (Table rel) c) M.empty loaded
-      putStrLn ("Tablas recargadas: " ++ show (length loaded))
+      let ctx = M.fromList [(name, Table rel) | (name, rel) <- loaded]
+      let msg = case (length loaded, length errs) of
+            (n, 0) -> "Tablas recargadas: " ++ show n
+            (n, e) -> "Tablas recargadas: " ++ show n ++ " (" ++ show e ++ " errores)"
+      putStrLn msg
       return ctx
 
 handleQuery :: String -> Context -> IO Context
@@ -47,10 +50,10 @@ handleQuery input ctx =
     Right (name, viewExp) -> do
       case runStateErrorTrace (update name (View viewExp) >> getContext) (ctx, 0) of
         Left err -> putStrLn ("Error: " ++ show err) >> return ctx
-        Right (newCtx, _, _) -> putStrLn ("Vista '" ++ name ++ "' creada.") >> return newCtx
+        Right (newCtx, _, trace) -> putStrLn ("\n" ++ trace) >> return newCtx
     Left _ -> do
       case parseRA input of
-        Left err -> print err >> return ctx
+        Left err -> putStrLn ("Error: " ++ show err) >> return ctx
         Right ast -> do
           let pipeline = do astOpt <- optimize ast
                             rel <- eval astOpt

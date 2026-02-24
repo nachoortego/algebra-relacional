@@ -69,16 +69,40 @@ pushSelections (Seleccion c (Union r1 r2)) = do
   r2Opt <- pushSelections (Seleccion c r2)
   return (Union r1Opt r2Opt)
 
-pushSelections (Proyeccion l r) = Proyeccion l <$> pushSelections r
-pushSelections (Seleccion c r)  = Seleccion c <$> pushSelections r
-pushSelections (Renombre o n r) = Renombre o n <$> pushSelections r
-pushSelections (Union r1 r2)    = Union <$> pushSelections r1 <*> pushSelections r2
-pushSelections (Diferencia r1 r2) = Diferencia <$> pushSelections r1 <*> pushSelections r2
-pushSelections (Producto r1 r2) = Producto <$> pushSelections r1 <*> pushSelections r2
-pushSelections (Interseccion r1 r2) = Interseccion <$> pushSelections r1 <*> pushSelections r2
-pushSelections (Join r1 r2)     = Join <$> pushSelections r1 <*> pushSelections r2
-pushSelections (Division r1 r2) = Division <$> pushSelections r1 <*> pushSelections r2
-pushSelections (Tabla n)        = return (Tabla n)
+pushSelections (Proyeccion l r) = do
+  r' <- pushSelections r
+  return (Proyeccion l r')
+pushSelections (Seleccion c r) = do
+  r' <- pushSelections r
+  return (Seleccion c r')
+pushSelections (Renombre o n r) = do
+  r' <- pushSelections r
+  return (Renombre o n r')
+pushSelections (Union r1 r2) = do
+  r1' <- pushSelections r1
+  r2' <- pushSelections r2
+  return (Union r1' r2')
+pushSelections (Diferencia r1 r2) = do
+  r1' <- pushSelections r1
+  r2' <- pushSelections r2
+  return (Diferencia r1' r2')
+pushSelections (Producto r1 r2) = do
+  r1' <- pushSelections r1
+  r2' <- pushSelections r2
+  return (Producto r1' r2')
+pushSelections (Interseccion r1 r2) = do
+  r1' <- pushSelections r1
+  r2' <- pushSelections r2
+  return (Interseccion r1' r2')
+pushSelections (Join r1 r2) = do
+  r1' <- pushSelections r1
+  r2' <- pushSelections r2
+  return (Join r1' r2')
+pushSelections (Division r1 r2) = do
+  r1' <- pushSelections r1
+  r2' <- pushSelections r2
+  return (Division r1' r2')
+pushSelections (Tabla n) = return (Tabla n)
 
 
 getSchema :: RAExp -> StateErrorTrace Schema
@@ -99,7 +123,7 @@ getSchema (Interseccion r1 _)  = getSchema r1
 getSchema (Producto r1 r2) = do
   s1 <- getSchema r1
   s2 <- getSchema r2
-  let fixKey = avoidClash (attrSet s1)
+  let fixKey = avoidClash (S.union (attrSet s1) (attrSet s2))
       s2Fixed = mapSchema fixKey s2
       newSchema = combineSchemas s1 s2Fixed
   return newSchema
@@ -120,10 +144,3 @@ getAttrsCond (Comp a _ (VInt _)) = [a]
 getAttrsCond (And c1 c2) = getAttrsCond c1 ++ getAttrsCond c2
 getAttrsCond (Or c1 c2)  = getAttrsCond c1 ++ getAttrsCond c2
 getAttrsCond (Not c)     = getAttrsCond c
-
-avoidClash :: S.Set String -> String -> String
-avoidClash avoid k
-  | S.member k avoid = ac (2 :: Int)
-  | otherwise        = k
-  where ac i = let candidate = k ++ "_" ++ show i
-               in if S.member candidate avoid then ac (i + 1) else candidate
